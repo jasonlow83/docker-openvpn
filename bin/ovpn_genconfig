@@ -144,6 +144,7 @@ fi
 
 OVPN_AUTH=''
 OVPN_CIPHER=''
+OVPN_DATA_CIPHER=''
 OVPN_CLIENT_TO_CLIENT=''
 OVPN_CN=''
 OVPN_COMP_LZO=0
@@ -167,12 +168,13 @@ OVPN_ROUTES=()
 OVPN_SERVER=192.168.255.0/24
 OVPN_SERVER_URL=''
 OVPN_TLS_CIPHER=''
+OVPN_TLS_OPTION="tls-auth"
 
 # Import existing configuration if present
 [ -r "$OVPN_ENV" ] && source "$OVPN_ENV"
 
 # Parse arguments
-while getopts ":a:e:E:C:T:r:s:du:bcp:n:k:DNm:f:tz2" opt; do
+while getopts ":a:e:E:C:g:T:r:s:du:bcp:n:k:DNm:f:o:tz2" opt; do
     case $opt in
         a)
             OVPN_AUTH="$OPTARG"
@@ -191,6 +193,9 @@ while getopts ":a:e:E:C:T:r:s:du:bcp:n:k:DNm:f:tz2" opt; do
             ;;
         C)
             OVPN_CIPHER="$OPTARG"
+            ;;
+        g)
+            OVPN_DATA_CIPHER="$OPTARG"
             ;;
         T)
             OVPN_TLS_CIPHER="$OPTARG"
@@ -253,6 +258,9 @@ while getopts ":a:e:E:C:T:r:s:du:bcp:n:k:DNm:f:tz2" opt; do
         f)
             OVPN_FRAGMENT="$OPTARG"
             ;;
+        o)
+            OVPN_TLS_OPTION="$OPTARG"
+            ;;
         \?)
             set +x
             echo "Invalid option: -$OPTARG" >&2
@@ -281,6 +289,11 @@ else
     echo "Common name not specified, see '-u'"
     usage
     exit 1
+fi
+
+if [ "${OVPN_TLS_OPTION}" != "tls-auth" ] && [ "${OVPN_TLS_OPTION}" != "tls-crypt" ]; then
+  echo "Invalid TLS option specified. Use 'tls-auth' or 'tls-crypt'."
+  exit 1
 fi
 
 # Apply defaults. If dns servers were not defined with -n, use google nameservers
@@ -324,11 +337,11 @@ key $EASYRSA_PKI/private/${OVPN_CN}.key
 ca $EASYRSA_PKI/ca.crt
 cert $EASYRSA_PKI/issued/${OVPN_CN}.crt
 dh $EASYRSA_PKI/dh.pem
-tls-auth $EASYRSA_PKI/ta.key
-key-direction 0
+
 keepalive $OVPN_KEEPALIVE
 persist-key
 persist-tun
+topology subnet
 
 proto $OVPN_PROTO
 # Rely on Docker to do port mapping, internally always 1194
@@ -348,13 +361,16 @@ fi
 
 [ -n "$OVPN_TLS_CIPHER" ] && echo "tls-cipher $OVPN_TLS_CIPHER" >> "$conf"
 [ -n "$OVPN_CIPHER" ] && echo "cipher $OVPN_CIPHER" >> "$conf"
+[ -n "$OVPN_DATA_CIPHER" ] && echo "data-ciphers $OVPN_DATA_CIPHER" >> "$conf"
 [ -n "$OVPN_AUTH" ] && echo "auth $OVPN_AUTH" >> "$conf"
 
 [ -n "${OVPN_CLIENT_TO_CLIENT:-}" ] && echo "client-to-client" >> "$conf"
 [ "$OVPN_COMP_LZO" == "1" ] && echo "comp-lzo" >> "$conf"
-[ "$OVPN_COMP_LZO" == "0" ] && echo "comp-lzo no" >> "$conf"
 
 [ -n "${OVPN_FRAGMENT:-}" ] && echo "fragment $OVPN_FRAGMENT" >> "$conf"
+
+[ "${OVPN_TLS_OPTION}" == "tls-auth" ] && echo "tls-auth ${EASYRSA_PKI}/ta.key 0" >> "$conf"
+[ "${OVPN_TLS_OPTION}" == "tls-crypt" ] && echo "tls-crypt ${EASYRSA_PKI}/ta.key" >> "$conf"
 
 # Append route commands
 if [ ${#OVPN_ROUTES[@]} -gt 0 ]; then
@@ -369,10 +385,6 @@ fi
 [ "$OVPN_DNS" == "1" ] && for i in "${OVPN_DNS_SERVERS[@]}"; do
   process_push_config "dhcp-option DNS $i"
 done
-
-if [ "$OVPN_COMP_LZO" == "0" ]; then
-    process_push_config "comp-lzo no"
-fi
 
 [ ${#OVPN_PUSH[@]} -gt 0 ] && for i in "${OVPN_PUSH[@]}"; do
   process_push_config "$i"
