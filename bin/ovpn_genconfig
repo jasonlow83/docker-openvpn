@@ -291,8 +291,8 @@ else
     exit 1
 fi
 
-if [ "${OVPN_TLS_OPTION}" != "tls-auth" ] && [ "${OVPN_TLS_OPTION}" != "tls-crypt" ]; then
-  echo "Invalid TLS option specified. Use 'tls-auth' or 'tls-crypt'."
+if [ "${OVPN_TLS_OPTION}" != "tls-auth" ] && [ "${OVPN_TLS_OPTION}" != "tls-crypt" ] && [ "${OVPN_TLS_OPTION}" != "tls-crypt-v2" ]; then
+  echo "Invalid TLS option specified. Use 'tls-auth', 'tls-crypt' or 'tls-crypt-v2'."
   exit 1
 fi
 
@@ -371,6 +371,7 @@ fi
 
 [ "${OVPN_TLS_OPTION}" == "tls-auth" ] && echo "tls-auth ${EASYRSA_PKI}/ta.key 0" >> "$conf"
 [ "${OVPN_TLS_OPTION}" == "tls-crypt" ] && echo "tls-crypt ${EASYRSA_PKI}/ta.key" >> "$conf"
+[ "${OVPN_TLS_OPTION}" == "tls-crypt-v2" ] && echo "tls-crypt-v2 ${EASYRSA_PKI}/tc-server.key" >> "$conf"
 
 # Append route commands
 if [ ${#OVPN_ROUTES[@]} -gt 0 ]; then

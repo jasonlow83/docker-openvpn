@@ -71,6 +71,12 @@ $(cat $EASYRSA_PKI/ta.key)
 $(cat $EASYRSA_PKI/ta.key)
 </tls-crypt>
 "
+        elif [ "$OVPN_TLS_OPTION" == "tls-crypt-v2" ]; then
+            echo "
+<tls-crypt-v2>
+$(cat $EASYRSA_PKI/tc-${cn}.key)
+</tls-crypt-v2>
+"
         fi
     elif [ "$mode" == "separated" ]; then
         echo "
@@ -82,6 +88,8 @@ cert ${cn}.crt
             echo "tls-auth ta.key 1"
         elif [ "$OVPN_TLS_OPTION" == "tls-crypt" ]; then
            echo "tls-crypt ta.key"
+        elif [ "$OVPN_TLS_OPTION" == "tls-crypt-v2" ]; then
+           echo "tls-crypt-v2 ta.key"
         fi
     fi
 
